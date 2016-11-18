@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "938383553308",
+    "firebase_url": "https://meetings-ssau-mobile.firebaseio.com",
+    "project_id": "meetings-ssau-mobile",
+    "storage_bucket": "meetings-ssau-mobile.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:938383553308:android:240e62401c1fef7b",
+        "android_client_info": {
+          "package_name": "ru.ssau.mobile.lab2"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "938383553308-risl4tv0clm8295hfshf10nq64iooiq2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBh6shYra7JI6w0zkvR2kNi-jgZ46n-VpU"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
