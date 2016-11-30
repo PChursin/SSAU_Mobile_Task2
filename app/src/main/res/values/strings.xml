@@ -1,4 +1,8 @@
 <resources>
-    <string name="app_name">SSAU_Mobile_Task2</string>
-    <string name="action_settings">Settings</string>
+    <string name="app_name">Meetings</string>
+    <string name="activity_login_title">Meetings authentification</string>
+    <string name="login_email_hint">Email</string>
+    <string name="login_pass_hint">Password</string>
+    <string name="login_button_sign">Sign in</string>
+    <string name="login_button_create">Create account</string>
 </resources>
