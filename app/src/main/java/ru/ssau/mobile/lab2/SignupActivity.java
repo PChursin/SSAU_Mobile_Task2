@@ -5,10 +5,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
@@ -16,16 +14,23 @@ import android.widget.EditText;
 import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
-public class LoginActivity extends AppCompatActivity {
+import ru.ssau.mobile.lab2.models.Member;
+
+public class SignupActivity extends AppCompatActivity {
 
     private EditText emailField;
-    private EditText passwordField;
-    private Button signInButton;
+    private EditText passwordField1;
+    private EditText passwordField2;
+    private EditText nameField;
+    private EditText positionField;
     private Button createAccountButton;
     private ProgressDialog progressDialog;
 
@@ -34,6 +39,7 @@ public class LoginActivity extends AppCompatActivity {
     // [START declare_auth]
     private FirebaseAuth auth;
     // [END declare_auth]
+    private FirebaseDatabase db;
 
     // [START declare_auth_listener]
     private FirebaseAuth.AuthStateListener authListener;
@@ -41,17 +47,28 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle(R.string.activity_login_title);
-        setContentView(R.layout.activity_login);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+        //setTitle(R.string.activity_login_title);
+        setContentView(R.layout.activity_signup);
+        //Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        //setSupportActionBar(toolbar);
 
-        emailField = (EditText) findViewById(R.id.field_eMail);
-        passwordField = (EditText) findViewById(R.id.field_password);
-        signInButton = (Button) findViewById(R.id.button_sign_in);
-        createAccountButton = (Button) findViewById(R.id.button_create_account);
+        emailField = (EditText) findViewById(R.id.field_create_email);
+        passwordField1 = (EditText) findViewById(R.id.field_create_pass1);
+        passwordField2 = (EditText) findViewById(R.id.field_create_pass2);
+        nameField = (EditText) findViewById(R.id.field_create_name);
+        positionField = (EditText) findViewById(R.id.field_create_position);
+        createAccountButton = (Button) findViewById(R.id.button_create_signup);
 
         auth = FirebaseAuth.getInstance();
+        db = FirebaseDatabase.getInstance();
+
+        Intent intent = getIntent();
+        String email = intent.getStringExtra("email");
+        String pass = intent.getStringExtra("password");
+        if (email != null)
+            emailField.setText(email);
+        if (pass != null)
+            passwordField1.setText(pass);
 
         authListener = new FirebaseAuth.AuthStateListener() {
             @Override
@@ -60,8 +77,7 @@ public class LoginActivity extends AppCompatActivity {
                 if (user != null) {
                     // User is signed in
                     Log.d(TAG, "onAuthStateChanged:signed_in:" + user.getUid());
-                    Intent intent = new Intent(getApplicationContext(), MeetingsActivity.class);
-                    startActivity(intent);
+                    setUpAccount();
                 } else {
                     // User is signed out
                     Log.d(TAG, "onAuthStateChanged:signed_out");
@@ -69,27 +85,41 @@ public class LoginActivity extends AppCompatActivity {
             }
         };
 
-        signInButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                signIn(emailField.getText().toString(),
-                        passwordField.getText().toString());
-            }
-        });
-
         createAccountButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                /*createAccount(emailField.getText().toString(),
-                        passwordField.getText().toString());*/
-                if (validateForm()) {
-                    Intent intent = new Intent(LoginActivity.this, SignupActivity.class);
-                    intent.putExtra("email", emailField.getText().toString());
-                    intent.putExtra("password", passwordField.getText().toString());
-                    startActivity(intent);
-                }
+                createAccount(emailField.getText().toString(),
+                        passwordField1.getText().toString());
             }
         });
+    }
+
+    private void setUpAccount() {
+        showProgressDialog("Setting up your account...");
+        FirebaseUser user = auth.getCurrentUser();
+        if (user != null) {
+            String uid = user.getUid();
+            Member m = new Member(nameField.getText().toString(),
+                    positionField.getText().toString());
+            DatabaseReference ref = db.getReference("members");
+            ref.child(uid).setValue(m).addOnCompleteListener(new OnCompleteListener<Void>() {
+                @Override
+                public void onComplete(@NonNull Task<Void> task) {
+                    hideProgressDialog();
+                    Intent intent = new Intent(SignupActivity.this, MeetingsActivity.class);
+                    startActivity(intent);
+                    finish();
+                }
+            }).addOnFailureListener(new OnFailureListener() {
+                @Override
+                public void onFailure(@NonNull Exception e) {
+                    hideProgressDialog();
+                    Toast toast = new Toast(getApplicationContext());
+                    toast.setText("Failed to connect =(");
+                    finish();
+                }
+            });
+        }
     }
 
     @Override
@@ -97,9 +127,7 @@ public class LoginActivity extends AppCompatActivity {
         super.onStart();
         auth.addAuthStateListener(authListener);
     }
-    // [END on_start_add_listener]
 
-    // [START on_stop_remove_listener]
     @Override
     public void onStop() {
         super.onStop();
@@ -114,7 +142,7 @@ public class LoginActivity extends AppCompatActivity {
             return;
         }
 
-        showProgressDialog();
+        showProgressDialog("Creating account...");
 
         // [START create_user_with_email]
         auth.createUserWithEmailAndPassword(email, password)
@@ -122,18 +150,18 @@ public class LoginActivity extends AppCompatActivity {
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
                         Log.d(TAG, "createUserWithEmail:onComplete:" + task.isSuccessful());
-
+                        hideProgressDialog();
                         // If sign in fails, display a message to the user. If sign in succeeds
                         // the auth state listener will be notified and logic to handle the
                         // signed in user can be handled in the listener.
                         if (!task.isSuccessful()) {
-                            Toast.makeText(LoginActivity.this, R.string.toast_acc_not_created,
+                            Toast.makeText(SignupActivity.this, R.string.toast_acc_not_created,
                                     Toast.LENGTH_SHORT).show();
+                            Log.e(TAG, "Failed to create account: ", task.getException());
+                        } else {
+                            signIn(emailField.getText().toString(),
+                                    passwordField1.getText().toString());
                         }
-
-                        // [START_EXCLUDE]
-                        hideProgressDialog();
-                        // [END_EXCLUDE]
                     }
                 });
         // [END create_user_with_email]
@@ -141,11 +169,8 @@ public class LoginActivity extends AppCompatActivity {
 
     private void signIn(String email, String password) {
         Log.d(TAG, "signIn:" + email);
-        if (!validateForm()) {
-            return;
-        }
 
-        showProgressDialog();
+        showProgressDialog("Signing in...");
 
         // [START sign_in_with_email]
         auth.signInWithEmailAndPassword(email, password)
@@ -153,45 +178,45 @@ public class LoginActivity extends AppCompatActivity {
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
                         Log.d(TAG, "signInWithEmail:onComplete:" + task.isSuccessful());
-
+                        hideProgressDialog();
                         // If sign in fails, display a message to the user. If sign in succeeds
                         // the auth state listener will be notified and logic to handle the
                         // signed in user can be handled in the listener.
                         if (!task.isSuccessful()) {
                             Log.w(TAG, "signInWithEmail:failed", task.getException());
-                            Toast.makeText(LoginActivity.this, R.string.toast_auth_failed,
+                            Toast.makeText(SignupActivity.this, R.string.toast_auth_failed,
                                     Toast.LENGTH_SHORT).show();
                         }
-
-                        hideProgressDialog();
-                        // [END_EXCLUDE]
                     }
                 });
         // [END sign_in_with_email]
     }
 
-    private void signOut() {
-        auth.signOut();
-    }
-
     private boolean validateForm() {
         boolean valid = true;
 
-        String email = emailField.getText().toString();
-        if (TextUtils.isEmpty(email)) {
-            emailField.setError("Required.");
+        EditText[] allFields = {emailField, passwordField1, passwordField2, nameField, positionField};
+
+        for (EditText field : allFields) {
+            String text = field.getText().toString();
+            if (TextUtils.isEmpty(text)) {
+                field.setError("Required.");
+                valid = false;
+            } else {
+                field.setError(null);
+            }
+        }
+        if (valid && passwordField1.getText().toString().length() < 6) {
             valid = false;
-        } else {
-            emailField.setError(null);
+            passwordField1.setError("At least 6 chars");
         }
 
-        String password = passwordField.getText().toString();
-        if (TextUtils.isEmpty(password)) {
-            passwordField.setError("Required.");
+        if (valid && !passwordField1.getText().toString().
+                equals(passwordField2.getText().toString())) {
             valid = false;
-        } else {
-            passwordField.setError(null);
+            passwordField2.setError("Doesn't match");
         }
+
         return valid;
     }
 
@@ -206,10 +231,19 @@ public class LoginActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    public void onBackPressed() {
+        finish();
+    }
+
     public void showProgressDialog() {
+        showProgressDialog(getString(R.string.loading));
+    }
+
+    public void showProgressDialog(String msg) {
         if (progressDialog == null) {
             progressDialog = new ProgressDialog(this);
-            progressDialog.setMessage(getString(R.string.loading));
+            progressDialog.setMessage(msg);
             progressDialog.setIndeterminate(true);
         }
 

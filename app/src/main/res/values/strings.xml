@@ -5,4 +5,11 @@
     <string name="login_pass_hint">Password</string>
     <string name="login_button_sign">Sign in</string>
     <string name="login_button_create">Create account</string>
+    <string name="create_pass_hint">Repeat password</string>
+    <string name="create_name_hint">Your name</string>
+    <string name="create_pos_hint">Your position</string>
+    <string name="loading">Connecting…</string>
+    <string name="toast_acc_not_created">Failed to create account</string>
+    <string name="toast_auth_failed">Auth failed</string>
+    <string name="action_sign_out">Sign out</string>
 </resources>
