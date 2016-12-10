@@ -4,4 +4,7 @@
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FFA000</color>
     <color name="colorGrey">#BBB</color>
+    <color name="colorPriorAsap">#F00</color>
+    <color name="colorPriorPlan">#FA0</color>
+    <color name="colorPriorLow">#1BF</color>
 </resources>

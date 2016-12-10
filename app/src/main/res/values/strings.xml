@@ -12,4 +12,5 @@
     <string name="toast_acc_not_created">Failed to create account</string>
     <string name="toast_auth_failed">Auth failed</string>
     <string name="action_sign_out">Sign out</string>
+    <string name="action_refresh">Refresh</string>
 </resources>
