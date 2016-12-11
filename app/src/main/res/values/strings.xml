@@ -13,4 +13,10 @@
     <string name="toast_auth_failed">Auth failed</string>
     <string name="action_sign_out">Sign out</string>
     <string name="action_refresh">Refresh</string>
+
+    <string-array name="prior_list">
+        <item>ASAP</item>
+        <item>Planned</item>
+        <item>As possible</item>
+    </string-array>
 </resources>

@@ -1,15 +1,18 @@
 package ru.ssau.mobile.lab2;
 
+import android.content.Intent;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
@@ -41,6 +44,7 @@ public class MeetingsActivity extends AppCompatActivity {
     private ChildEventListener meetingsCListener, membersCListener;
     private FirebaseAuth auth;
     private FirebaseAuth.AuthStateListener authListener;
+    private FloatingActionButton fab;
 
     private RecyclerView recyclerView;
     private RVAdapter rvAdapter;
@@ -193,6 +197,15 @@ public class MeetingsActivity extends AppCompatActivity {
                 Log.e(TAG, "On cancelled (members): ", databaseError.toException());
             }
         };
+
+        fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(MeetingsActivity.this, NewMeetingActivity.class);
+                startActivity(intent);
+            }
+        });
 
         recyclerView = (RecyclerView) findViewById(R.id.recycle_view);
         rvAdapter = new RVAdapter();

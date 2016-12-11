@@ -6,4 +6,5 @@
     <dimen name="login_button_text">20sp</dimen>
     <dimen name="in_card_margin_big">10dp</dimen>
     <dimen name="in_card_margin_small">6dp</dimen>
+    <dimen name="nm_labels_width">50dp</dimen>
 </resources>
