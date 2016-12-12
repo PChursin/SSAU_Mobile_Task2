@@ -12,5 +12,10 @@
         android:icon="@drawable/ic_leave"
         android:orderInCategory="100"
         app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_search"
+        android:title="Search"
+        app:showAsAction="ifRoom"
+        android:actionViewClass="android.widget.SearchView" />
 </menu>
 

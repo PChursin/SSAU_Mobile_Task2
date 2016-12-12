@@ -1,6 +1,8 @@
 package ru.ssau.mobile.lab2;
 
+import android.app.ProgressDialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -36,8 +38,6 @@ import ru.ssau.mobile.lab2.models.Member;
  */
 
 public class MeetingsActivity extends AppCompatActivity {
-
-    private FirebaseApp app;
     private FirebaseDatabase database;
     private DatabaseReference meetingsRef, membersRef;
 //    private ValueEventListener meetingsListener, membersListener;
@@ -45,6 +45,7 @@ public class MeetingsActivity extends AppCompatActivity {
     private FirebaseAuth auth;
     private FirebaseAuth.AuthStateListener authListener;
     private FloatingActionButton fab;
+    private ProgressDialog progressDialog;
 
     private RecyclerView recyclerView;
     private RVAdapter rvAdapter;
@@ -79,59 +80,13 @@ public class MeetingsActivity extends AppCompatActivity {
             }
         };
 
-        /*meetingsListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                for (DataSnapshot part : dataSnapshot.getChildren()) {
-                    Meeting m = part.getValue(Meeting.class);
-                    ArrayList<Meeting> curList = rvAdapter.getData();
-                    int res = Collections.binarySearch(curList, m);
-                    int pos = (res < 0 ? -1 - res : res);
-                    Log.d(TAG, "New index must be: "+pos+", binSearch returned: "+res);
-                    curList.add(pos, m);
-                    rvAdapter.notifyItemInserted(pos);
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-                Log.e(TAG, "On cancelled (meetings): ", databaseError.toException());
-            }
-        };
-
-        membersListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot dataSnapshot) {
-                for (DataSnapshot part : dataSnapshot.getChildren()) {
-                    Member m = part.getValue(Member.class);
-                    HashMap<String, Member> curMap = rvAdapter.getMembers();
-                    curMap.put(part.getKey(), m);
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError databaseError) {
-                Log.e(TAG, "On cancelled (members): ", databaseError.toException());
-            }
-        };*/
-
         meetingsCListener = new ChildEventListener() {
             @Override
             public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-                ArrayList<Meeting> curList = rvAdapter.getData();
-                ArrayList<String> idsList = rvAdapter.getDataIds();
-                int pos = idsList.indexOf(dataSnapshot.getKey());
-                if (pos >= 0) {
-                    Log.d(TAG, "Skipping duplicate value");
+                if (insertMeeting(dataSnapshot))
                     return;
-                }
-                Meeting m = dataSnapshot.getValue(Meeting.class);
-                int res = Collections.binarySearch(curList, m);
-                pos = (res < 0 ? -1 - res : res);
-                Log.d(TAG, "New index must be: "+pos+", binSearch returned: "+res);
-                curList.add(pos, m);
-                idsList.add(pos, dataSnapshot.getKey());
-                rvAdapter.notifyItemInserted(pos);
+                hideProgressDialog();
+
             }
 
             @Override
@@ -143,6 +98,7 @@ public class MeetingsActivity extends AppCompatActivity {
                 Log.d(TAG, "New index will be: "+pos);
                 curList.get(pos).replace(m);
                 rvAdapter.notifyItemChanged(pos);
+                hideProgressDialog();
             }
 
             @Override
@@ -150,9 +106,15 @@ public class MeetingsActivity extends AppCompatActivity {
                 ArrayList<Meeting> curList = rvAdapter.getData();
                 ArrayList<String> idsList = rvAdapter.getDataIds();
                 int pos = idsList.indexOf(dataSnapshot.getKey());
-                curList.remove(pos);
-                idsList.remove(pos);
-                rvAdapter.notifyItemRemoved(pos);
+                if (pos < 0) {
+                    Log.w(TAG, "Problem on removing - reloading");
+                    reloadTotally();
+                } else {
+                    curList.remove(pos);
+                    idsList.remove(pos);
+                    rvAdapter.notifyItemRemoved(pos);
+                    hideProgressDialog();
+                }
             }
 
             @Override
@@ -163,6 +125,7 @@ public class MeetingsActivity extends AppCompatActivity {
             @Override
             public void onCancelled(DatabaseError databaseError) {
                 Log.e(TAG, "On cancelled (meetings): ", databaseError.toException());
+                hideProgressDialog();
             }
         };
 
@@ -209,60 +172,53 @@ public class MeetingsActivity extends AppCompatActivity {
 
         recyclerView = (RecyclerView) findViewById(R.id.recycle_view);
         rvAdapter = new RVAdapter();
-        /*//test
-        ArrayList<String> memIds = new ArrayList<>();
-        ArrayList<String> meetIds = new ArrayList<>();
-        meetIds.add("1");meetIds.add("2");meetIds.add("3");
-        memIds.add("1");
-        ArrayList<Meeting> meetings = new ArrayList<>();
-        Meeting m1 = new Meeting("TtT!", "SUPER summary!", 1481285636000L, 1481285800000L,
-                memIds, 1);
-        meetings.add(m1);
-        memIds.add("2");
-        Meeting m2 = new Meeting("New Meeting!", "another SUPER summary!", 1481285740000L, 1481289990000L,
-                memIds, 1);
-        meetings.add(m2);
-        m1 = new Meeting("TtT! v.2", "SUPER v.2 summary!", 1481287036000L, 1481287500000L,
-                memIds, 1);
-        meetings.add(m1);
-        HashMap<String, Member> members = new HashMap<>();
-        members.put("1", new Member("Johny Cage", "Actor"));
-        members.put("2", new Member("SeKtor", "Robot"));
-        rvAdapter.setData(meetings);
-        rvAdapter.setMembers(members);
-        rvAdapter.setDataIds(meetIds);
-        //end*/
-//        rvAdapter.setContext(getApplicationContext());
         rvAdapter.setContext(this);
         recyclerView.setAdapter(rvAdapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+    }
+
+    private boolean insertMeeting(DataSnapshot dataSnapshot) {
+        ArrayList<Meeting> curList = rvAdapter.getData();
+        ArrayList<String> idsList = rvAdapter.getDataIds();
+        int pos = idsList.indexOf(dataSnapshot.getKey());
+        if (pos >= 0) {
+            Log.d(TAG, "Skipping duplicate value");
+            return true;
+        }
+        Meeting m = dataSnapshot.getValue(Meeting.class);
+        int res = Collections.binarySearch(curList, m);
+        pos = (res < 0 ? -1 - res : res);
+        Log.d(TAG, "New index must be: "+pos+", binSearch returned: "+res);
+        curList.add(pos, m);
+        idsList.add(pos, dataSnapshot.getKey());
+        rvAdapter.notifyItemInserted(pos);
+        return false;
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         auth.addAuthStateListener(authListener);
-//        meetingsRef.addValueEventListener(meetingsListener);
-//        membersRef.addValueEventListener(membersListener);
         meetingsRef.addChildEventListener(meetingsCListener);
         membersRef.addChildEventListener(membersCListener);
+        reloadTotally();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        if (authListener != null) {
+        if (authListener != null)
             auth.removeAuthStateListener(authListener);
-        }
-//        if (membersListener != null)
-//            membersRef.removeEventListener(membersListener);
-//        if (meetingsListener != null)
-//            meetingsRef.removeEventListener(meetingsListener);
+        if (membersCListener != null)
+            membersRef.removeEventListener(membersCListener);
+        if (meetingsCListener != null)
+            meetingsRef.removeEventListener(meetingsCListener);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        //SharedPreferences.Editor editor = new SharedPreferences.Editor();
     }
 
     @Override
@@ -278,6 +234,9 @@ public class MeetingsActivity extends AppCompatActivity {
             case R.id.action_sign_out:
                 auth.signOut();
                 break;
+            case R.id.action_refresh:
+                reloadTotally();
+                break;
         }
         return super.onOptionsItemSelected(item);
     }
@@ -285,6 +244,45 @@ public class MeetingsActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         moveTaskToBack(true);
+    }
+
+    public void showProgressDialog(String msg) {
+        if (progressDialog == null) {
+            progressDialog = new ProgressDialog(this);
+            progressDialog.setMessage(msg);
+            progressDialog.setIndeterminate(true);
+        }
+
+        progressDialog.show();
+    }
+
+    public void hideProgressDialog() {
+        if (progressDialog != null && progressDialog.isShowing()) {
+            progressDialog.dismiss();
+        }
+    }
+
+    private void reloadTotally() {
+        Log.d(TAG, "Full reloading started");
+        showProgressDialog("Sync in progress...");
+        rvAdapter.getData().clear();
+        rvAdapter.getDataIds().clear();
+        rvAdapter.notifyDataSetChanged();
+        meetingsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                for (DataSnapshot data : dataSnapshot.getChildren()) {
+                    insertMeeting(data);
+                }
+                hideProgressDialog();
+                Log.d(TAG, "Reloaded!");
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+
+            }
+        });
     }
 
 }
