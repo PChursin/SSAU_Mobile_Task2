@@ -1,6 +1,7 @@
 package ru.ssau.mobile.lab2;
 
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.nfc.Tag;
@@ -11,6 +12,7 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.widget.SearchView;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -26,6 +28,10 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,6 +52,7 @@ public class MeetingsActivity extends AppCompatActivity {
     private FirebaseAuth.AuthStateListener authListener;
     private FloatingActionButton fab;
     private ProgressDialog progressDialog;
+    private SearchView searchView;
 
     private RecyclerView recyclerView;
     private RVAdapter rvAdapter;
@@ -97,6 +104,7 @@ public class MeetingsActivity extends AppCompatActivity {
                 int pos = idsList.indexOf(dataSnapshot.getKey());
                 Log.d(TAG, "New index will be: "+pos);
                 curList.get(pos).replace(m);
+                rvAdapter.syncData();
                 rvAdapter.notifyItemChanged(pos);
                 hideProgressDialog();
             }
@@ -112,6 +120,7 @@ public class MeetingsActivity extends AppCompatActivity {
                 } else {
                     curList.remove(pos);
                     idsList.remove(pos);
+                    rvAdapter.syncData();
                     rvAdapter.notifyItemRemoved(pos);
                     hideProgressDialog();
                 }
@@ -175,6 +184,20 @@ public class MeetingsActivity extends AppCompatActivity {
         rvAdapter.setContext(this);
         recyclerView.setAdapter(rvAdapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        searchView = (SearchView) findViewById(R.id.search_field);
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String s) {
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String s) {
+                rvAdapter.getFilter().filter(s);
+                return false;
+            }
+        });
     }
 
     private boolean insertMeeting(DataSnapshot dataSnapshot) {
@@ -191,6 +214,7 @@ public class MeetingsActivity extends AppCompatActivity {
         Log.d(TAG, "New index must be: "+pos+", binSearch returned: "+res);
         curList.add(pos, m);
         idsList.add(pos, dataSnapshot.getKey());
+        rvAdapter.syncData();
         rvAdapter.notifyItemInserted(pos);
         return false;
     }
@@ -201,6 +225,7 @@ public class MeetingsActivity extends AppCompatActivity {
         auth.addAuthStateListener(authListener);
         meetingsRef.addChildEventListener(meetingsCListener);
         membersRef.addChildEventListener(membersCListener);
+        BootBroadcastReceiver.cancelAlarms(getApplicationContext());
         reloadTotally();
     }
 
@@ -213,12 +238,24 @@ public class MeetingsActivity extends AppCompatActivity {
             membersRef.removeEventListener(membersCListener);
         if (meetingsCListener != null)
             meetingsRef.removeEventListener(meetingsCListener);
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        //SharedPreferences.Editor editor = new SharedPreferences.Editor();
+        try {
+            FileOutputStream fos = getApplicationContext().openFileOutput(
+                    getResources().getString(R.string.meetings_serialize), Context.MODE_PRIVATE);
+            ObjectOutputStream os = new ObjectOutputStream(fos);
+            os.writeObject(rvAdapter.getData());
+            os.close();
+            fos.close();
+            fos = getApplicationContext().openFileOutput(
+                    getResources().getString(R.string.meetings_ids_serialize), Context.MODE_PRIVATE);
+            os = new ObjectOutputStream(fos);
+            os.writeObject(rvAdapter.getDataIds());
+            os.close();
+            fos.close();
+        } catch (IOException e) {
+            Log.e(TAG, "Serialize exception: ", e);
+        }
+        Log.d(TAG, "onStop");
+        BootBroadcastReceiver.scheduleAlarms(getApplicationContext());
     }
 
     @Override
@@ -236,6 +273,13 @@ public class MeetingsActivity extends AppCompatActivity {
                 break;
             case R.id.action_refresh:
                 reloadTotally();
+                break;
+            case R.id.action_search:
+                int v = searchView.getVisibility();
+                if (v == View.GONE)
+                    searchView.setVisibility(View.VISIBLE);
+                else
+                    searchView.setVisibility(View.GONE);
                 break;
         }
         return super.onOptionsItemSelected(item);
@@ -267,6 +311,7 @@ public class MeetingsActivity extends AppCompatActivity {
         showProgressDialog("Sync in progress...");
         rvAdapter.getData().clear();
         rvAdapter.getDataIds().clear();
+        rvAdapter.syncData();
         rvAdapter.notifyDataSetChanged();
         meetingsRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override

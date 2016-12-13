@@ -9,6 +9,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Filter;
+import android.widget.Filterable;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -32,11 +34,14 @@ import ru.ssau.mobile.lab2.models.Member;
  */
 
 public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
-        implements View.OnClickListener {
+        implements View.OnClickListener, Filterable {
 
     private int expandedPosition = -1;
-    private ArrayList<Meeting> data = new ArrayList<>();
-    private ArrayList<String> dataIds = new ArrayList<>();
+    private ValueFilter valueFilter;
+    private ArrayList<Meeting> dataShown = new ArrayList<>();
+    private ArrayList<Meeting> dataStored = new ArrayList<>();
+    private ArrayList<String> dataIdsShown = new ArrayList<>();
+    private ArrayList<String> dataIdsStored = new ArrayList<>();
     private HashMap<String, Member> members = new HashMap<>();
     private Context context;
 
@@ -60,7 +65,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
 
     @Override
     public void onBindViewHolder(final RVAdapter.ViewHolder holder, int position) {
-        Meeting m = data.get(position);
+        Meeting m = dataShown.get(position);
         SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yyyy HH:mm");
         //sdf.setTimeZone(TimeZone.getTimeZone(String.valueOf(TimeZone.getDefault())));
         holder.topicLabel.setText(m.getSubject());
@@ -114,7 +119,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
             public void onClick(View view) {
                 String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
                 DatabaseReference ref = FirebaseDatabase.getInstance().getReference("meetings");
-                List<String> participants = data.get(holder.getAdapterPosition()).getMembers();
+                List<String> participants = dataShown.get(holder.getAdapterPosition()).getMembers();
                 if (participants == null)
                     participants = new ArrayList<String>();
                 int pos = participants.indexOf(uid);
@@ -125,8 +130,8 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
                     participants.remove(uid);
                     Log.d(TAG, "Trying to leave...");
                 }
-                ref.child(dataIds.get(holder.getAdapterPosition())).child("members").setValue(participants);
-//                ref.child(dataIds.get(position)).child("members").
+                ref.child(dataIdsShown.get(holder.getAdapterPosition())).child("members").setValue(participants);
+//                ref.child(dataIdsShown.get(position)).child("members").
             }
         });
 
@@ -135,7 +140,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
             public void onClick(View view) {
                 String uri= "smsto:";
                 Intent intent = new Intent(Intent.ACTION_SENDTO, Uri.parse(uri));
-                Meeting meeting = data.get(holder.getAdapterPosition());
+                Meeting meeting = dataShown.get(holder.getAdapterPosition());
                 intent.putExtra("sms_body", "Meeting: "+meeting.getSubject()+
                         "\nSummary: "+meeting.getSummary());
                 intent.putExtra("compose_mode", true);
@@ -148,7 +153,7 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
             public void onClick(View view) {
                 DatabaseReference meetingsRef = FirebaseDatabase.getInstance().getReference("meetings");
                 int pos = holder.getAdapterPosition();
-                meetingsRef.child(dataIds.get(pos)).removeValue();
+                meetingsRef.child(dataIdsShown.get(pos)).removeValue();
                 expandedPosition = -1;
             }
         });
@@ -156,13 +161,17 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
 
     @Override
     public int getItemCount() {
-        return data.size();
+        if (dataShown == null) {
+            Log.w(TAG, "dataShown is null o_O");
+            dataShown = new ArrayList<>();
+        }
+        return dataShown.size();
     }
 
     @Override
     public void onClick(View view) {
         ViewHolder holder = (ViewHolder) view.getTag();
-        //String theString = data.get(holder.getPosition());
+        //String theString = dataShown.get(holder.getPosition());
         int pos = holder.getAdapterPosition();
         // Check for an expanded view, collapse if you find one
         if (expandedPosition >= 0 && expandedPosition != pos) {
@@ -173,15 +182,22 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
         expandedPosition = (expandedPosition == pos ? -1 : pos);
         notifyItemChanged(pos);
 
-        //Toast.makeText(context, "Clicked: "+data.get(holder.getAdapterPosition()).getSubject(), Toast.LENGTH_SHORT).show();
+        //Toast.makeText(context, "Clicked: "+dataShown.get(holder.getAdapterPosition()).getSubject(), Toast.LENGTH_SHORT).show();
     }
 
     public ArrayList<Meeting> getData() {
-        return data;
+        //return dataShown;
+        return dataStored;
+    }
+
+    public void syncData() {
+        dataShown = dataStored;
+        dataIdsShown = dataIdsStored;
     }
 
     public void setData(ArrayList<Meeting> data) {
-        this.data = data;
+        this.dataShown = data;
+        dataStored = data;
     }
 
     public HashMap<String, Member> getMembers() {
@@ -201,11 +217,20 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
     }
 
     public ArrayList<String> getDataIds() {
-        return dataIds;
+        //return dataIdsShown;
+        return dataIdsStored;
     }
 
     public void setDataIds(ArrayList<String> dataIds) {
-        this.dataIds = dataIds;
+        this.dataIdsShown = dataIds;
+    }
+
+    @Override
+    public Filter getFilter() {
+        if (valueFilter == null) {
+            valueFilter = new ValueFilter();
+        }
+        return valueFilter;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -233,6 +258,38 @@ public class RVAdapter extends RecyclerView.Adapter<RVAdapter.ViewHolder>
             sendSmsButton = (ImageButton) itemView.findViewById(R.id.button_send_sms);
             takePartButton = (ImageButton) itemView.findViewById(R.id.button_take_part);
             deleteButton = (ImageButton) itemView.findViewById(R.id.button_delete);
+        }
+    }
+
+    private class ValueFilter extends Filter {
+
+        @Override
+        protected FilterResults performFiltering(CharSequence constraint) {
+            FilterResults results = new FilterResults();
+            dataIdsShown = new ArrayList<>();
+
+            if (constraint != null && constraint.length() > 0) {
+                ArrayList<Meeting> filterList = new ArrayList<>();
+                for (int i = 0; i < dataStored.size(); i++) {
+                    if ((dataStored.get(i).getSummary().toUpperCase()).contains(constraint.toString().toUpperCase())) {
+                        filterList.add(dataStored.get(i));
+                        dataIdsShown.add(dataIdsStored.get(i));
+                    }
+                }
+                results.count = filterList.size();
+                results.values = filterList;
+            } else {
+                results.count = dataStored.size();
+                results.values = dataStored;
+            }
+            return results;
+        }
+
+        @Override
+        protected void publishResults(CharSequence constraint,
+                                      FilterResults results) {
+            dataShown = (ArrayList<Meeting>) results.values;
+            notifyDataSetChanged();
         }
     }
 }

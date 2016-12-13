@@ -1,12 +1,13 @@
 package ru.ssau.mobile.lab2.models;
 
+import java.io.Serializable;
 import java.util.Calendar;
 import java.util.List;
 
 /**
  * Created by Pavel Chursin on 20.11.2016.
  */
-public class Meeting implements Comparable<Meeting> {
+public class Meeting implements Comparable<Meeting>, Serializable {
     String subject;
     String summary;
     long startTime;
@@ -47,6 +48,23 @@ public class Meeting implements Comparable<Meeting> {
         this.endTime = endTime;
         this.members = members;
         this.priority = priority;
+    }
+
+    public boolean equalsTo(Meeting other) {
+        if (subject.equals(other.getSubject()) &&
+                summary.equals(other.getSummary()) &&
+                startTime == other.startTime &&
+                endTime == other.endTime &&
+                priority == other.priority) {
+            if (members.size() == other.getMembers().size()) {
+                for (int i = 0; i < members.size(); i++) {
+                    if (!members.get(i).equals(other.getMembers().get(i)))
+                        return false;
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     public void replace(Meeting other) {

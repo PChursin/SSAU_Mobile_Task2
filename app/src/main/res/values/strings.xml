@@ -14,6 +14,8 @@
     <string name="action_sign_out">Sign out</string>
     <string name="action_refresh">Refresh</string>
     <string name="participants"><![CDATA[Participants: <click here to add>]]></string>
+    <string name="meetings_serialize">meetings.cer</string>
+    <string name="meetings_ids_serialize">meetings_ids.cer</string>
 
     <string-array name="prior_list">
         <item>ASAP</item>

@@ -16,6 +16,6 @@
         android:id="@+id/action_search"
         android:title="Search"
         app:showAsAction="ifRoom"
-        android:actionViewClass="android.widget.SearchView" />
+        android:icon="@drawable/ic_search" />
 </menu>
 
