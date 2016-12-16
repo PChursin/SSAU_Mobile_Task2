@@ -80,9 +80,17 @@ public class NewMeetingActivity extends AppCompatActivity {
         dateOnly = new SimpleDateFormat("EE, dd MMM yyyy");
         timeOnly = new SimpleDateFormat("HH:mm");
 
-        dateStart = Calendar.getInstance();
-        dateEnd = Calendar.getInstance();
-        dateEnd.add(Calendar.HOUR, 1);
+        if (savedInstanceState != null) {
+            dateStart = (Calendar) savedInstanceState.getSerializable("dateStart");
+            dateEnd = (Calendar) savedInstanceState.getSerializable("dateEnd");
+            chosenMembers = savedInstanceState.getStringArrayList("chosenMembers");
+            memIds = savedInstanceState.getStringArrayList("memIds");
+            membersLabel.setText(savedInstanceState.getString("participants"));
+        } else {
+            dateStart = Calendar.getInstance();
+            dateEnd = Calendar.getInstance();
+            dateEnd.add(Calendar.HOUR, 1);
+        }
 
         fromDateLabel.setText(dateOnly.format(dateStart.getTime()));
         fromTimeLabel.setText(timeOnly.format(dateStart.getTime()));
@@ -153,6 +161,7 @@ public class NewMeetingActivity extends AppCompatActivity {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 //TODO logic
+                                chosenMembers.clear();
                                 for (int i = 0; i < checked.length; i++) {
                                     if (checked[i]) {
                                         chosenMembers.add(memIds.get(i));
@@ -163,7 +172,7 @@ public class NewMeetingActivity extends AppCompatActivity {
                                 if (delPos > 0)
                                     sb.delete(delPos, sb.length());
                                 else
-                                    sb.append("<click here to change>");
+                                    sb.append("<click here to add>");
                                 membersLabel.setText(sb);
                                 dialog.dismiss();
                             }
@@ -224,7 +233,7 @@ public class NewMeetingActivity extends AppCompatActivity {
             }
         };
 
-        final DatePickerDialog endDatePicker = new DatePickerDialog(NewMeetingActivity.this, startDateListener,
+        final DatePickerDialog endDatePicker = new DatePickerDialog(NewMeetingActivity.this, endDateListener,
                 dateEnd.get(Calendar.YEAR), dateEnd.get(Calendar.MONTH), dateEnd.get(Calendar.DAY_OF_MONTH));
 
 
@@ -286,5 +295,15 @@ public class NewMeetingActivity extends AppCompatActivity {
             }
         }
         return valid;
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putSerializable("dateStart", dateStart);
+        outState.putSerializable("dateEnd", dateEnd);
+        outState.putStringArrayList("chosenMembers", chosenMembers);
+        outState.putStringArrayList("memIds", memIds);
+        outState.putString("participants", membersLabel.getText().toString());
+        super.onSaveInstanceState(outState);
     }
 }
